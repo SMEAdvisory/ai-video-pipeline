@@ -948,7 +948,19 @@ function renderClient(id) {
       </div>
       <pre class="code-block" id="configPreview"></pre>
     </div>
-  `;
+
+    <div class="export-panel" style="margin-top:16px;border-color:rgba(240,180,41,0.25)">
+      <div class="export-title" style="color:var(--gold)">⬆ Import from pipeline_config.json</div>
+      <div class="export-desc">Have an existing config file? Upload it here and all fields will be filled in automatically — no manual typing needed.</div>
+      <div class="export-actions">
+        <label class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          📂 Choose pipeline_config.json
+          <input type="file" accept=".json" style="display:none" onchange="importConfig(event)">
+        </label>
+      </div>
+      <div id="importStatus" style="margin-top:10px;font-size:12px;color:var(--grey);display:none"></div>
+    </div>
+  \`;
 }
 
 // ─── SECTION HELPER ────────────────────────────────────────────
@@ -1156,6 +1168,122 @@ function copyConfig(id) {
   navigator.clipboard.writeText(JSON.stringify(config, null, 2)).then(() => {
     toast('Config copied to clipboard', 'info');
   });
+}
+
+// ─── IMPORT ───────────────────────────────────────────────────
+function importConfig(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const cfg = JSON.parse(e.target.result);
+      if (!activeId) return;
+      const c = clients[activeId] || {};
+
+      // HeyGen
+      if (cfg.heygen) {
+        if (cfg.heygen.api_key) c.heygen_apiKey = cfg.heygen.api_key;
+        if (cfg.heygen.avatar_id) c.heygen_avatarId = cfg.heygen.avatar_id;
+        if (cfg.heygen.avatar_name) c.heygen_avatarName = cfg.heygen.avatar_name;
+        if (cfg.heygen.background) c.heygen_background = cfg.heygen.background;
+      }
+
+      // fal.ai (top-level)
+      if (cfg.fal_ai) {
+        if (cfg.fal_ai.api_key) c.fal_apiKey = cfg.fal_ai.api_key;
+        if (cfg.fal_ai.model_id) c.fal_modelId = cfg.fal_ai.model_id;
+        if (cfg.fal_ai.trigger_word) c.fal_triggerWord = cfg.fal_ai.trigger_word;
+        if (cfg.fal_ai.training_request_id) c.fal_trainingRequestId = cfg.fal_ai.training_request_id;
+        if (cfg.fal_ai.lora_scale) c.fal_loraScale = cfg.fal_ai.lora_scale;
+      }
+
+      // Google / YouTube (top-level)
+      if (cfg.google) {
+        if (cfg.google.client_id) c.youtube_clientId = cfg.google.client_id;
+        if (cfg.google.client_secret) c.youtube_clientSecret = cfg.google.client_secret;
+      }
+      if (cfg.youtube) {
+        if (cfg.youtube.channel_id) c.youtube_channelId = cfg.youtube.channel_id;
+        if (cfg.youtube.client_id) c.youtube_clientId = cfg.youtube.client_id;
+        if (cfg.youtube.client_secret) c.youtube_clientSecret = cfg.youtube.client_secret;
+        if (cfg.youtube.refresh_token) c.youtube_refreshToken = cfg.youtube.refresh_token;
+        if (cfg.youtube.channel_url) c.youtube_channelUrl = cfg.youtube.channel_url;
+        if (cfg.youtube.default_category) c.youtube_category = cfg.youtube.default_category;
+        if (cfg.youtube.default_visibility) c.youtube_visibility = cfg.youtube.default_visibility;
+      }
+
+      // Ayrshare (top-level)
+      if (cfg.ayrshare) {
+        if (cfg.ayrshare.api_key) c.ayrshare_apiKey = cfg.ayrshare.api_key;
+        if (cfg.ayrshare.active_channels) c.ayrshare_channels = cfg.ayrshare.active_channels;
+      }
+
+      // Brand (top-level)
+      if (cfg.brand) {
+        if (cfg.brand.primary_colour) c.brand_primary = cfg.brand.primary_colour;
+        if (cfg.brand.accent_colour) c.brand_accent = cfg.brand.accent_colour;
+        if (cfg.brand.tone_of_voice) c.brand_tone = cfg.brand.tone_of_voice;
+        if (cfg.brand.target_audience) c.targetAudience = cfg.brand.target_audience;
+        if (cfg.brand.avoid_words) c.avoidWords = Array.isArray(cfg.brand.avoid_words) ? cfg.brand.avoid_words.join(', ') : cfg.brand.avoid_words;
+        if (cfg.brand.niche) c.businessNiche = cfg.brand.niche;
+        if (cfg.brand.cta) c.brand_cta = cfg.brand.cta;
+        if (cfg.brand.content_pillars) c.brand_pillars = cfg.brand.content_pillars;
+        if (cfg.brand.script_length) c.brand_scriptLength = cfg.brand.script_length;
+        if (cfg.brand.broll_mode) c.brand_brollMode = cfg.brand.broll_mode;
+        if (cfg.brand.video_format) c.brand_format = cfg.brand.video_format;
+        if (cfg.brand.business_name && !c.businessName) c.businessName = cfg.brand.business_name;
+      }
+
+      // Client contact
+      if (cfg.client_contact) {
+        if (cfg.client_contact.name) c.contactName = cfg.client_contact.name;
+        if (cfg.client_contact.email) c.contactEmail = cfg.client_contact.email;
+        if (cfg.client_contact.phone) c.contactPhone = cfg.client_contact.phone;
+        if (cfg.client_contact.website) c.website = cfg.client_contact.website;
+      }
+
+      // ── Handle the OLD format (clients block) ──
+      if (cfg.clients) {
+        const firstKey = Object.keys(cfg.clients)[0];
+        if (firstKey) {
+          const cl = cfg.clients[firstKey];
+          if (!c.businessName && cl.name) c.businessName = cl.name;
+          if (cl.heygen_avatar_id) c.heygen_avatarId = cl.heygen_avatar_id;
+          if (cl.elevenlabs_api_key) c.elevenlabs_apiKey = cl.elevenlabs_api_key;
+          if (cl.fal_ai) {
+            if (cl.fal_ai.model_id) c.fal_modelId = cl.fal_ai.model_id;
+            if (cl.fal_ai.trigger_word) c.fal_triggerWord = cl.fal_ai.trigger_word;
+          }
+          if (cl.youtube) {
+            if (cl.youtube.channel_id) c.youtube_channelId = cl.youtube.channel_id;
+            if (cl.youtube.refresh_token) c.youtube_refreshToken = cl.youtube.refresh_token.replace(/\\"$/, '');
+          }
+          if (cl.ayrshare_api_key) c.ayrshare_apiKey = cl.ayrshare_api_key;
+          if (cl.brand) {
+            if (cl.brand.primary_colour) c.brand_primary = cl.brand.primary_colour;
+            if (cl.brand.accent_colour) c.brand_accent = cl.brand.accent_colour;
+            if (cl.brand.tone) c.brand_tone = cl.brand.tone;
+            if (cl.brand.audience) c.targetAudience = cl.brand.audience;
+            if (cl.brand.avoid_words) c.avoidWords = Array.isArray(cl.brand.avoid_words) ? cl.brand.avoid_words.join(', ') : cl.brand.avoid_words;
+          }
+        }
+      }
+
+      clients[activeId] = c;
+      save(clients);
+
+      // Re-render the form with populated values
+      renderClient(activeId);
+      renderSidebar();
+      toast('Config imported successfully — all fields populated!');
+
+    } catch(err) {
+      toast('Could not read file — make sure it is a valid pipeline_config.json', 'info');
+      console.error(err);
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ─── DELETE ───────────────────────────────────────────────────
